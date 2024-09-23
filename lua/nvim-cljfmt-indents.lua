@@ -298,10 +298,10 @@ function plugin.setup (opts)
   opts = opts or {}
   plugin.config = {}
 
-  if type(opts.config) == 'table' then
-    plugin.config.cljfmt = opts.config
-  elseif type(opts.config) == 'string' then
-    local success, value = read_edn_file(opts.config)
+  if type(opts.cljfmt) == 'table' then
+    plugin.config.cljfmt = opts.cljfmt
+  elseif type(opts.cljfmt) == 'string' then
+    local success, value = read_edn_file(opts.cljfmt)
     if success then
       plugin.config.cljfmt = value
     else

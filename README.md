@@ -17,8 +17,7 @@ other package managers).
 }
 ```
 
-Do something like this to use this plugin within Clojure
-buffers.
+Do something like this, to enable it in Clojure buffers.
 
 ```lua
 vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter' }, {
@@ -30,11 +29,11 @@ vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter' }, {
 ```
 
 > [!WARNING]
-> This plugin relies on the clojure tree-sitter grammer,
+> Relies on the clojure tree-sitter grammer,
 > so make sure that's installed.
 
 ## Config
-By default the plugin will loop in the `cwd` and parent
+By default the plugin will look in the `cwd` and parent
 directories for either a `.lsp/config.edn` with cljfmt
 config, or a `cljfmt.edn`, or a `.cljfmt.edn` file.
 
@@ -57,6 +56,6 @@ require('nvim-cljfmt-indents').setup {
 ```
 
 > [!WARNING]
-> Haven't tested this very well at all yet.  There are bound
+> Haven't tested this very thoroughly at all yet.  There are bound
 > to be many bugs.  But so far works pretty well.  Use at your
 > own risk.

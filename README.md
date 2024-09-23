@@ -2,7 +2,7 @@ This plugin provides a `GetCljfmtIndent` global function
 that can be used in an `indentexpr` to help keep things
 indented according to your `cljfmt` rules as you work.
 
-It's indented to be 'as good as possible,' but won't be
+It's intended to be 'as good as possible,' but won't be
 perfect.  Use it along-side `clojure-lsp`'s formatting,
 with the latter having the final say.
 

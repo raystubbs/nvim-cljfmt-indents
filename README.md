@@ -29,7 +29,7 @@ vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWinEnter' }, {
 })
 ```
 
-> ![WARNING]
+> [!WARNING]
 > This plugin relies on the clojure tree-sitter grammer,
 > so make sure that's installed.
 
@@ -56,7 +56,7 @@ require('nvim-cljfmt-indents').setup {
 }
 ```
 
-> ![WARNING]
+> [!WARNING]
 > Haven't tested this very well at all yet.  There are bound
 > to be many bugs.  But so far works pretty well.  Use at your
 > own risk.

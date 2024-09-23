@@ -37,7 +37,7 @@ By default the plugin will look in the `cwd` and parent
 directories for either a `.lsp/config.edn` with cljfmt
 config, or a `cljfmt.edn`, or a `.cljfmt.edn` file.
 
-The the cljfmt config can also be given explicitly as
+The cljfmt config can also be given explicitly as
 a table or path to the config file, by setting the `cljfmt`
 option:
 

@@ -5,7 +5,7 @@ local max_config_search_level = 15
 
 local function decode_edn (x)
   return edn.decode(x, {
-    tags = {re = function (s) return vim.regex(s) end},
+    tags = {re = function (s) return vim.regex('\\v' .. s) end},
     keyword = function (s) return ':' .. s end
   })
 end
@@ -320,8 +320,8 @@ function plugin.setup (opts)
       table.insert(indents, {priority = 9, matcher = function(s) return k:match_str(s) end, rules = v})
     end
   end
-  if type(plugin.config.cljfmt.indents) == 'table' then
-    for k, v in pairs(plugin.config.cljfmt.indents) do
+  if type(plugin.config.cljfmt[':indents']) == 'table' then
+    for k, v in pairs(plugin.config.cljfmt[':indents']) do
       add_indent(k, v)
     end
   else
@@ -331,8 +331,10 @@ function plugin.setup (opts)
       end
     end
   end
-  for k, v in pairs(plugin.config.cljfmt['extra-indents'] or {}) do
-    add_indent(k, v)
+  if type(plugin.config.cljfmt[':extra-indents']) == 'table' then
+    for k, v in pairs(plugin.config.cljfmt[':extra-indents'] or {}) do
+      add_indent(k, v)
+    end
   end
 
   table.sort(indents, function(a, b) return a.priority < b.priority end)

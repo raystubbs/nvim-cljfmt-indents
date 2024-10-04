@@ -184,6 +184,9 @@ local function get_rule (buf, ts_parent_node, index, depth)
 
   local is_list = ts_parent_node:type() == 'list_lit'
   local first_child = is_list and ts_parent_node:named_child(0)
+  if first_child == nil or first_child:type() ~= 'sym_lit' then
+    return 'default'
+  end
   if first_child then
     local first_child_start_row, first_child_start_col = first_child:start()
     local first_child_end_row, first_child_end_col = first_child:end_()

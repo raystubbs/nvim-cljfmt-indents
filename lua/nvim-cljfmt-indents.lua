@@ -252,7 +252,7 @@ local function get_indentation(buf, pos)
   while node
     and node:type() ~= 'list_lit'
     and node:type() ~= 'map_lit'
-    and node:type() ~= 'vec_list'
+    and node:type() ~= 'vec_lit'
     and node:type() ~= 'set_lit'
     and node:type() ~= 'str_lit' do
       node = node:parent()

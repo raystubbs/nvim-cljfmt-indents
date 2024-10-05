@@ -177,6 +177,150 @@ local default_indent_edn_strings = {
   ]]
 }
 
+local core_names = {
+  ['when'] = true,
+  ['do'] = true,
+  -- TODO: fill these out
+}
+
+local function get_ts_node_text (buf, node)
+  local start_row, start_col = node:start()
+  local end_row, end_col = node:end_()
+  local text = table.concat(vim.api.nvim_buf_get_text(
+    buf, start_row, start_col, end_row, end_col, {}
+  ), '\n')
+  return text
+end
+
+local function get_aliasing(buf, root_node)
+  local ns_node = root_node:named_child(0)
+  if ns_node == nil or ns_node:type() ~= 'list_lit' then
+    return nil
+  end
+
+  local ns_sym_node = ns_node:named_child(0)
+  local ns_binding_node = ns_node:named_child(1)
+  if ns_sym_node == nil
+    or ns_sym_node:type() ~= 'sym_lit'
+    or get_ts_node_text(buf, ns_sym_node) ~= 'ns'
+    or ns_binding_node == nil
+    or ns_binding_node:type() ~= 'sym_lit' then
+    return nil
+  end
+
+  local require_node, refer_clojure_node
+  for i = 1, ns_node:named_child_count() - 1 do
+    local child = ns_node:named_child(i)
+    if child:type() == 'list_lit' then
+      local head = child:named_child(0)
+      local head_text = get_ts_node_text(buf, head)
+      if head_text == ':require' then
+        require_node = child
+      elseif head_text == ':refer_clojure' then
+        refer_clojure_node = child
+      end
+    end
+  end
+
+  local core_excluded = {}
+  if refer_clojure_node then
+    for i = 1, refer_clojure_node:named_child_count() - 1 do
+      if get_ts_node_text(buf, refer_clojure_node:named_child(i)) == ':exclude' then
+        local exclude_coll = refer_clojure_node:named_child(i+1)
+        local exclude_coll_type = exclude_coll and exclude_coll:type()
+        if exclude_coll_type == 'list_lit'
+          or exclude_coll_type == 'set_lit'
+          or exclude_coll_type == 'vec_lit' then
+          for j = 0, exclude_coll:named_child_count() - 1 do
+            local excluded_node = exclude_coll:named_child(j)
+            local excluded_name_node = excluded_node:field('name')[1]
+            if excluded_name_node then
+              core_excluded[get_ts_node_text(buf, excluded_name_node)] = true
+            end
+          end
+        end
+      end
+    end
+  end
+
+  local ns_aliases = {}
+  for k, _ in pairs(core_names) do
+    if not core_excluded[k] then
+      ns_aliases[k] = 'clojure.core'
+    end
+  end
+
+  local ns_refers = {}
+  if require_node then
+    for i = 1, require_node:named_child_count() - 1 do
+      local requirement_node = require_node:named_child(i)
+      local type = requirement_node:type()
+      if type == 'vec_lit' or type == 'list_lit' then
+        local required_ns_node = requirement_node:named_child(0)
+        local required_ns_text = get_ts_node_text(buf, required_ns_node)
+        if required_ns_node and required_ns_node:type() == 'sym_lit' then
+          for j = 1, requirement_node:named_child_count() - 1 do
+            local requirement_child_node = requirement_node:named_child(j)
+            if requirement_child_node:type() == 'kwd_lit' then
+              local keyword_text = get_ts_node_text(buf, requirement_child_node)
+              if keyword_text == ':as' or keyword_text == ':as-alias' then
+                local alias_node = requirement_node:named_child(j+1)
+                if alias_node and alias_node:type() == 'sym_lit' then
+                  ns_aliases[get_ts_node_text(buf, alias_node)] = required_ns_text
+                end
+              elseif keyword_text == ':refer' or keyword_text == ':refer-macros' then
+                local refers_coll_node = requirement_node:named_child(j+1)
+                local refers_coll_type = refers_coll_node and refers_coll_node:type()
+                if refers_coll_type == 'list_lit'
+                  or refers_coll_type == 'vec_lit'
+                  or refers_coll_type == 'set_lit' then
+                  for k = 0, refers_coll_node:named_child_count() - 1 do
+                    local referred_node = refers_coll_node:named_child(k)
+                    if referred_node:type() == 'sym_lit' then
+                      ns_refers[get_ts_node_text(buf, referred_node)] = required_ns_text
+                    end
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+
+  return {
+    aliases = ns_aliases,
+    refers = ns_refers,
+    ns = get_ts_node_text(buf, ns_binding_node)
+  }
+end
+
+local function get_qualified_name(buf, sym_node)
+  local namespace_node = sym_node:field('namespace')[1]
+  local name_node = sym_node:field('name')[1]
+  local namespace = namespace_node and get_ts_node_text(buf, namespace_node)
+  local name = name_node and get_ts_node_text(buf, name_node)
+
+  local config_alias_map = plugin.config.cljfmt[':alias-map']
+  if config_alias_map and config_alias_map[namespace] then
+    return config_alias_map[namespace] .. '/' .. name
+  end
+
+  local root_node = sym_node:tree():root()
+  local aliasing = get_aliasing(buf, root_node)
+  if aliasing == nil then
+    return namespace .. '/' .. name
+  end
+
+  if namespace then
+    local resolved_ns = aliasing.aliases[namespace]
+    return (resolved_ns or namespace) .. '/' .. name
+  end
+
+  return (aliasing.refers[name] or aliasing.ns) .. '/' .. name
+end
+
 local function get_rule (buf, ts_parent_node, index, depth)
   if ts_parent_node == nil then
     return 'default'
@@ -188,12 +332,7 @@ local function get_rule (buf, ts_parent_node, index, depth)
     return 'default'
   end
   if first_child then
-    local first_child_start_row, first_child_start_col = first_child:start()
-    local first_child_end_row, first_child_end_col = first_child:end_()
-    local first_child_str = table.concat(vim.api.nvim_buf_get_text(
-      buf, first_child_start_row, first_child_start_col,
-      first_child_end_row, first_child_end_col, {}
-    ))
+    local first_child_str = get_qualified_name(buf, first_child)
     for _, indent in ipairs(plugin.config.indents) do
       if indent.matcher(first_child_str) then
         for _, pattern_rule in ipairs(indent.rules) do
@@ -238,12 +377,17 @@ local function get_rule (buf, ts_parent_node, index, depth)
   return get_rule(buf, ts_parent_node:parent(), ts_parent_node_index, depth + 1)
 end
 
+
 local function get_indentation(buf, pos)
   pos = pos or vim.api.nvim_win_get_cursor(vim.api.nvim_get_current_win())
   buf = buf or vim.api.nvim_get_current_buf()
 
-  local parser = plugin.parser or vim.treesitter.get_parser(buf, 'clojure')
-  plugin.parser = parser
+  local parser = (plugin.parsers and plugin.parsers[buf]) or vim.treesitter.get_parser(buf, 'clojure')
+  if plugin.parsers then
+    plugin.parsers[buf] = parser
+  else
+    plugin.parsers = {[buf] = parser}
+  end
 
   if parser == nil then
     return nil

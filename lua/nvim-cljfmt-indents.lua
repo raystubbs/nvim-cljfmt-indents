@@ -178,9 +178,43 @@ local default_indent_edn_strings = {
 }
 
 local core_names = {
-  ['when'] = true,
-  ['do'] = true,
-  -- TODO: fill these out
+  "*", "*'", "*1", "*2", "*3", "*agent*",
+  "*allow-unresolved-vars*", "*assert*", "*clojure-version*",
+  "*comand-line-args*", "*compile-files*", "*compile-path*",
+  "*compiler-options*", "*data-readers*", "*default-data-reader-fn*",
+  "*e", "*err*", "*file*", "*flush-on-newline*", "*fn-loader*", "*in*",
+  "*math-context*", "*ns*", "*out*", "*print-dup*", "*print-length*",
+  "*print-level*", "*print-meta*", "*print-namespace-maps*", "*print-readably*",
+  "*read-eval*", "*reader-resolver*", "*source-path*", "*suppress-read*",
+  "*unchecked-math*", "*use-context-classloader*", "verbose-defrecords*",
+  "*warn-on-reflection*", "+", "+'", "-", "-'", "->", "->>", "->ArrayChunk",
+  "->Eduction", "->Vec", "->VecNode", "->VecSeq", "-cache-protocol-fn", "-reset-methods",
+  ".", "..", "/", "<", "<=", "=", "==", ">", ">=", "abs", "accessor", "aclone",
+  "add-classpath", "add-tap", "add-watch", "agent", "agent-error", "agent-errors",
+  "aget", "alength", "alias", "all-ns", "alter", "alter-meta!", "alter-var-root!",
+  "amap", "ancestors", "and", "any?", "apply", "areduce", "array-map", "as->", "aset",
+  "aset-boolean", "aset-byte", "aset-char", "aset-double", "aset-float", "aset-int",
+  "aset-long", "aset-short", "assert", "assoc", "assoc!", "assoc-in", "associative?",
+  "atom", "await", "await-for", "await1", "bases", "bean", "bigdec", "bigint",
+  "biginteger", "binding", "bit-and", "bit-and-not", "bit-clear", "bit-flip", "bit-not",
+  "bit-or", "bit-set", "big-shift-left", "bit-shift-right", "bit-test", "bit-xor",
+  "boolean", "boolean-array", "boolean?", "booleans", "bound-fn", "bound-fn*",
+  "bound?", "bounded-count", "butlast", "byte", "byte-array", "bytes", "bytes?",
+  "case", "cast", "cat", "catch", "char", "char-array", "char-escape-string",
+  "char-name-string", "char?", "chars", "chunk", "chunk-append", "chunk-buffer",
+  "chunk-cons", "chunk-first", "chunk-next", "chunk-rest", "chunked-seq?",
+  "class", "class?", "clear-agent-errors", "clojure-version", "coll?", "comment",
+  "commute", "comp", "comparator", "compare", "compare-and-set!", "compile",
+  "complement", "completing", "concat", "cond", "cond->", "cond->>", "condp",
+  "conj", "conj!", "cons", "constantly", "construct-proxy", "contains?", "count",
+  "counted?", "create-ns", "create-struct", "cycle", "dec", "dec'", "decimal?",
+  "declare", "dedupe", "def", "default-data-readers", "definline", "definterface",
+  "defmacro", "defmethod", "defmulti", "defn", "defn-", "defonce", "defprotocol",
+  "defrecord", "defstruct", "deftype", "delay", "delay?", "deliver", "denominator",
+  "deref", "derive", "descendants", "disj", "disj!", "dissoc", "distinct", "distinct?",
+  "do", "doall", "dorun", "doseq", "dosync", "dotimes", "doto", "double", "double-array",
+  "double?", "doubles", "drop", "drop-last", "drop-while"
+  -- TODO: add the rest
 }
 
 local function get_ts_node_text (buf, node)
@@ -244,7 +278,7 @@ local function get_aliasing(buf, root_node)
   end
 
   local ns_aliases = {}
-  for k, _ in pairs(core_names) do
+  for _, k in ipairs(core_names) do
     if not core_excluded[k] then
       ns_aliases[k] = 'clojure.core'
     end
@@ -310,7 +344,7 @@ local function get_qualified_name(buf, sym_node)
   local root_node = sym_node:tree():root()
   local aliasing = get_aliasing(buf, root_node)
   if aliasing == nil then
-    return namespace .. '/' .. name
+    return (namespace and namespace .. '/' .. name) or name
   end
 
   if namespace then
@@ -462,7 +496,24 @@ function plugin.setup (opts)
   local indents = {}
   local function add_indent(k, v)
     if type(k) == 'string' then
-      table.insert(indents, {priority = 0, matcher = function(s) return s == k end, rules = v})
+      if string.match(k, "/") then
+        table.insert(indents, {
+          priority = 0,
+          matcher = function(s) return s == k end,
+          rules = v
+        })
+      else
+        table.insert(indents,{
+          priority = 0,
+          matcher = function(s)
+            print(s, k)
+            print(k == s)
+            print(string.match(s, "/" .. k .. "$"))
+            return (k == s or string.match(s, "/" .. k .. "$") or false) and true
+          end,
+          rules = v
+        })
+      end
     elseif type(k) == 'userdata' and string.format('%s', k) == '<regex>' then
       table.insert(indents, {priority = 9, matcher = function(s) return k:match_str(s) end, rules = v})
     end

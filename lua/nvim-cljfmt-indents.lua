@@ -443,6 +443,7 @@ local function get_indentation(buf, pos)
          and not node:type() == 'str_lit'
          or (node_row == cur_row and node_col == cur_col)) do
       node = node:parent()
+
       if node then 
         node_row, node_col = node:start()
       end
@@ -462,10 +463,14 @@ local function get_indentation(buf, pos)
   end
 
   local index = 0
-  local child_row, child_col = node:named_child(index):end_()
-  while node:named_child(index) and child_row < cur_row do
+  local child = node:named_child(index)
+  local child_row, child_col = child:end_()
+  while child and child_row < cur_row do
     index = index + 1
-    child_row, child_col = node:named_child(index):end_()
+    child = node:named_child(index)
+    if child then
+      child_row, child_col = child:end_()
+    end
   end
 
   local rule = get_rule(buf, node, index, 0)

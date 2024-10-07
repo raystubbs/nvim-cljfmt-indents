@@ -437,8 +437,6 @@ local function get_indentation(buf, pos)
   local tree = parser:parse(true)[1]
   local node = tree:root():named_descendant_for_range(cur_row, cur_col, cur_row, cur_col)
   local node_row, node_col = node:start()
-  print(node, node_row, node_col)
-  print(cur_row, cur_col)
 
   while node
     and (not is_collection_node(node)
@@ -448,7 +446,6 @@ local function get_indentation(buf, pos)
       if node then 
         node_row, node_col = node:start()
       end
-      print(node_row, node_col)
     end
 
   if node == nil then
@@ -457,6 +454,8 @@ local function get_indentation(buf, pos)
 
 
   if node:type() == 'str_lit' then
+    return nil
+  elseif node:type() == 'source' then
     return nil
   elseif node:type() ~= 'list_lit' then
     return node_col + 1

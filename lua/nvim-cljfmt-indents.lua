@@ -411,19 +411,17 @@ local function get_rule (buf, ts_parent_node, index, depth)
   return get_rule(buf, ts_parent_node:parent(), ts_parent_node_index, depth + 1)
 end
 
+local function is_collection_node(node)
+  local t = node:type()
+  return t == 'list_lit' or t == 'map_lit' or t == 'set_lit' or t == 'vec_lit';
+end
 
 local function get_indentation(buf, pos)
   pos = pos or vim.api.nvim_win_get_cursor(vim.api.nvim_get_current_win())
   buf = buf or vim.api.nvim_get_current_buf()
-  local cur_row, cur_col
-  if pos[2] == 0 then
-    local line = vim.api.nvim_buf_get_lines(buf, pos[1], pos[1] + 1, false)[1]
-    cur_row = pos[1] - 2
-    cur_col = string.len(line) - 1
-  else
-   cur_row = pos[1] - 1
-   cur_col = pos[2]
-  end
+
+  local cur_row = pos[1] - 1
+  local cur_col = pos[2]
 
   local parser = (plugin.parsers and plugin.parsers[buf]) or vim.treesitter.get_parser(buf, 'clojure')
   if plugin.parsers then
@@ -438,21 +436,25 @@ local function get_indentation(buf, pos)
 
   local tree = parser:parse(true)[1]
   local node = tree:root():named_descendant_for_range(cur_row, cur_col, cur_row, cur_col)
+  local node_row, node_col = node:start()
+  print(node, node_row, node_col)
+  print(cur_row, cur_col)
 
   while node
-    and node:type() ~= 'list_lit'
-    and node:type() ~= 'map_lit'
-    and node:type() ~= 'vec_lit'
-    and node:type() ~= 'set_lit'
-    and node:type() ~= 'str_lit' do
+    and (not is_collection_node(node)
+         and not node:type() == 'str_lit'
+         or (node_row == cur_row and node_col == cur_col)) do
       node = node:parent()
+      if node then 
+        node_row, node_col = node:start()
+      end
+      print(node_row, node_col)
     end
 
   if node == nil then
     return nil
   end
 
-  local node_row, node_col = node:start()
 
   if node:type() == 'str_lit' then
     return nil

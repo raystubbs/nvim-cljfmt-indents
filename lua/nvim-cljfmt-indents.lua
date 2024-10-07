@@ -415,6 +415,15 @@ end
 local function get_indentation(buf, pos)
   pos = pos or vim.api.nvim_win_get_cursor(vim.api.nvim_get_current_win())
   buf = buf or vim.api.nvim_get_current_buf()
+  local cur_row, cur_col
+  if pos[2] == 0 then
+    local line = vim.api.nvim_buf_get_lines(buf, pos[1], pos[1] + 1, false)[1]
+    cur_row = pos[1] - 2
+    cur_col = string.len(line) - 1
+  else
+   cur_row = pos[1] - 1
+   cur_col = pos[2]
+  end
 
   local parser = (plugin.parsers and plugin.parsers[buf]) or vim.treesitter.get_parser(buf, 'clojure')
   if plugin.parsers then
@@ -427,8 +436,8 @@ local function get_indentation(buf, pos)
     return nil
   end
 
-  parser:parse({0, pos[1]})
-  local node = vim.treesitter.get_node({bufnr = buf, pos = {pos[1] - 1, pos[2]}})
+  local tree = parser:parse(true)[1]
+  local node = tree:root():named_descendant_for_range(cur_row, cur_col, cur_row, cur_col)
 
   while node
     and node:type() ~= 'list_lit'
@@ -452,8 +461,10 @@ local function get_indentation(buf, pos)
   end
 
   local index = 0
-  while node:named_child(index) and node:named_child(index):end_() < pos[1] - 1 do
+  local child_row, child_col = node:named_child(index):end_()
+  while node:named_child(index) and child_row < cur_row do
     index = index + 1
+    child_row, child_col = node:named_child(index):end_()
   end
 
   local rule = get_rule(buf, node, index, 0)
@@ -506,9 +517,6 @@ function plugin.setup (opts)
         table.insert(indents,{
           priority = 0,
           matcher = function(s)
-            print(s, k)
-            print(k == s)
-            print(string.match(s, "/" .. k .. "$"))
             return (k == s or string.match(s, "/" .. k .. "$") or false) and true
           end,
           rules = v

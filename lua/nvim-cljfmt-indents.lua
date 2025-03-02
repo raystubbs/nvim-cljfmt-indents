@@ -236,7 +236,7 @@ local function get_aliasing(buf, root_node)
   local ns_binding_node = ns_node:named_child(1)
   if ns_sym_node == nil
     or ns_sym_node:type() ~= 'sym_lit'
-    or get_ts_node_text(buf, ns_sym_node) ~= 'ns'
+    or vim.treesitter.get_node_text(ns_sym_node, buf) ~= 'ns'
     or ns_binding_node == nil
     or ns_binding_node:type() ~= 'sym_lit' then
     return nil
@@ -247,7 +247,7 @@ local function get_aliasing(buf, root_node)
     local child = ns_node:named_child(i)
     if child:type() == 'list_lit' then
       local head = child:named_child(0)
-      local head_text = get_ts_node_text(buf, head)
+      local head_text = vim.treesitter.get_node_text(head, buf)
       if head_text == ':require' then
         require_node = child
       elseif head_text == ':refer_clojure' then
@@ -259,7 +259,7 @@ local function get_aliasing(buf, root_node)
   local core_excluded = {}
   if refer_clojure_node then
     for i = 1, refer_clojure_node:named_child_count() - 1 do
-      if get_ts_node_text(buf, refer_clojure_node:named_child(i)) == ':exclude' then
+      if vim.treesitter.get_node_text(refer_clojure_node:named_child(i), buf) == ':exclude' then
         local exclude_coll = refer_clojure_node:named_child(i+1)
         local exclude_coll_type = exclude_coll and exclude_coll:type()
         if exclude_coll_type == 'list_lit'
@@ -269,7 +269,7 @@ local function get_aliasing(buf, root_node)
             local excluded_node = exclude_coll:named_child(j)
             local excluded_name_node = excluded_node:field('name')[1]
             if excluded_name_node then
-              core_excluded[get_ts_node_text(buf, excluded_name_node)] = true
+              core_excluded[vim.treesitter.get_node_text(excluded_name_node, buf)] = true
             end
           end
         end
@@ -291,16 +291,16 @@ local function get_aliasing(buf, root_node)
       local type = requirement_node:type()
       if type == 'vec_lit' or type == 'list_lit' then
         local required_ns_node = requirement_node:named_child(0)
-        local required_ns_text = get_ts_node_text(buf, required_ns_node)
+        local required_ns_text = vim.treesitter.get_node_text(required_ns_node, buf)
         if required_ns_node and required_ns_node:type() == 'sym_lit' then
           for j = 1, requirement_node:named_child_count() - 1 do
             local requirement_child_node = requirement_node:named_child(j)
             if requirement_child_node:type() == 'kwd_lit' then
-              local keyword_text = get_ts_node_text(buf, requirement_child_node)
+              local keyword_text = vim.treesitter.get_node_text(requirement_child_node, buf)
               if keyword_text == ':as' or keyword_text == ':as-alias' then
                 local alias_node = requirement_node:named_child(j+1)
                 if alias_node and alias_node:type() == 'sym_lit' then
-                  ns_aliases[get_ts_node_text(buf, alias_node)] = required_ns_text
+                  ns_aliases[vim.treesitter.get_node_text(alias_node, buf)] = required_ns_text
                 end
               elseif keyword_text == ':refer' or keyword_text == ':refer-macros' then
                 local refers_coll_node = requirement_node:named_child(j+1)
@@ -311,7 +311,7 @@ local function get_aliasing(buf, root_node)
                   for k = 0, refers_coll_node:named_child_count() - 1 do
                     local referred_node = refers_coll_node:named_child(k)
                     if referred_node:type() == 'sym_lit' then
-                      ns_refers[get_ts_node_text(buf, referred_node)] = required_ns_text
+                      ns_refers[vim.treesitter.get_node_text(reffered_node, buf)] = required_ns_text
                     end
                   end
                 end
@@ -326,15 +326,15 @@ local function get_aliasing(buf, root_node)
   return {
     aliases = ns_aliases,
     refers = ns_refers,
-    ns = get_ts_node_text(buf, ns_binding_node)
+    ns = vim.treesitter.get_node_text(ns_binding_node, buf)
   }
 end
 
 local function get_qualified_name(buf, sym_node)
   local namespace_node = sym_node:field('namespace')[1]
   local name_node = sym_node:field('name')[1]
-  local namespace = namespace_node and get_ts_node_text(buf, namespace_node)
-  local name = name_node and get_ts_node_text(buf, name_node)
+  local namespace = namespace_node and vim.treesitter.get_node_text(namespace_node, buf)
+  local name = name_node and vim.treesitter.get_node_text(name_node, buf)
 
   local config_alias_map = plugin.config.cljfmt[':alias-map']
   if config_alias_map and config_alias_map[namespace] then
@@ -413,7 +413,12 @@ end
 
 local function is_collection_node(node)
   local t = node:type()
-  return t == 'list_lit' or t == 'map_lit' or t == 'set_lit' or t == 'vec_lit';
+  return t == 'list_lit'
+    or t == 'map_lit'
+    or t == 'set_lit'
+    or t == 'vec_lit'
+    or t == 'read_cond_lit'
+    or t == 'anon_fn_lit';
 end
 
 local function get_indentation(buf, pos)
@@ -458,8 +463,12 @@ local function get_indentation(buf, pos)
     return nil
   elseif node:type() == 'source' then
     return nil
+  elseif node:type() == 'anon_fn_lit' then
+    node_col = node_col + 1
   elseif node:type() ~= 'list_lit' then
-    return node_col + 1
+    local node_text = vim.treesitter.get_node_text(node, buf)
+    local bracket_index, _ = string.find(node_text, "[([{]")
+    return bracked_index + 1
   end
 
   local index = 0

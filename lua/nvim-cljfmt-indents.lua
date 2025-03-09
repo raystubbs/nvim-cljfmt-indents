@@ -311,7 +311,8 @@ local function get_aliasing(buf, root_node)
                   for k = 0, refers_coll_node:named_child_count() - 1 do
                     local referred_node = refers_coll_node:named_child(k)
                     if referred_node:type() == 'sym_lit' then
-                      ns_refers[vim.treesitter.get_node_text(reffered_node, buf)] = required_ns_text
+                      local referred_sym = vim.treesitter.get_node_text(referred_node, buf, {})
+                      ns_refers[referred_sym] = required_ns_text
                     end
                   end
                 end

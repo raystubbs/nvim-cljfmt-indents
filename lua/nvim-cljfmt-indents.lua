@@ -469,7 +469,7 @@ local function get_indentation(buf, pos)
   elseif node:type() ~= 'list_lit' then
     local node_text = vim.treesitter.get_node_text(node, buf)
     local bracket_index, _ = string.find(node_text, "[([{]")
-    return bracked_index + 1
+    return bracket_index + 1
   end
 
   local index = 0

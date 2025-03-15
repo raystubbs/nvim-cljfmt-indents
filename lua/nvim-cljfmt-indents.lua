@@ -465,11 +465,11 @@ local function get_indentation(buf, pos)
   elseif node:type() == 'source' then
     return nil
   elseif node:type() == 'anon_fn_lit' then
-    node_col = node_col + 1
+    node_col = node_col
   elseif node:type() ~= 'list_lit' then
     local node_text = vim.treesitter.get_node_text(node, buf)
     local bracket_index, _ = string.find(node_text, "[([{]")
-    return bracket_index + 1
+    return node_col + bracket_index
   end
 
   local index = 0

@@ -446,11 +446,11 @@ local function get_indentation(buf, pos)
 
   while node
     and (not is_collection_node(node)
-         and not node:type() == 'str_lit'
+         and node:type() ~= 'str_lit'
          or (node_row == cur_row and node_col == cur_col)) do
       node = node:parent()
 
-      if node then 
+      if node then
         node_row, node_col = node:start()
       end
     end

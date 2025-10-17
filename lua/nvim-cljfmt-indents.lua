@@ -502,6 +502,10 @@ local function get_indentation(buf, pos)
   return nil
 end
 
+function escape_pattern(text)
+  return text:gsub('(%W)', '%%%1')
+end
+
 function plugin.setup (opts)
   opts = opts or {}
   plugin.config = {}
@@ -533,7 +537,7 @@ function plugin.setup (opts)
         table.insert(indents,{
           priority = 0,
           matcher = function(s)
-            return (k == s or string.match(s, "/" .. k .. "$") or false) and true
+            return (k == s or string.match(s, "/" .. escape_pattern(k) .. "$") or false) and true
           end,
           rules = v
         })
